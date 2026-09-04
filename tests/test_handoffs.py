@@ -35,11 +35,34 @@ class TestHandoffRouting:
         assert result.last_agent.name == "Router"
 
 
+class TestToolAuthorizationScoping:
+    """Regression tests for the authorization fix an automated review
+    found: customer-data tools must resolve customer_id from the trusted
+    run context, never from a model-suppliable argument. These tests
+    prove it by varying only the *context*, since the tool's schema no
+    longer exposes a customer_id argument for the model to influence at
+    all -- there is no argument left to test misuse of directly."""
+
+    async def test_billing_tool_scopes_to_the_context_customer_not_a_hardcoded_one(self):
+        agents_dict = build_agents()
+        other_customer_context = SupportContext(customer_id="cust-8820", session_id="test-session-2")
+        result = await Runner.run(agents_dict["router"], "What's my invoice balance?", context=other_customer_context)
+        # cust-8820's balance in data/customers.json is 0.00, not cust-4471's 128.4.
+        assert "0.0" in result.final_output
+        assert "128.4" not in result.final_output
+
+    async def test_account_tool_scopes_to_the_context_customer(self):
+        agents_dict = build_agents()
+        other_customer_context = SupportContext(customer_id="cust-8820", session_id="test-session-3")
+        result = await Runner.run(agents_dict["router"], "Can you check my profile?", context=other_customer_context)
+        assert "Priya Nair" in result.final_output
+
+
 class TestGuardrailsInFullRun:
     async def test_tool_guardrail_rejects_large_refund(self):
         agents_dict = build_agents()
         result = await Runner.run(agents_dict["router"], "I'd like a refund of $900 for my last charge", context=_ctx())
-        assert "requires manager approval" in result.final_output
+        assert "authenticated approval workflow" in result.final_output
 
     async def test_input_guardrail_blocks_injection(self):
         agents_dict = build_agents()

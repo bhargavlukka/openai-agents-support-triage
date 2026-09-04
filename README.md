@@ -20,7 +20,7 @@ What's real:
   (`data/audit_log.jsonl`) -- including two real bugs found and fixed by
   running it (see `docs/architecture.md`'s "Bugs found by actually
   running this").
-- The 14-test suite (`pytest`) runs and passes against the real
+- The 17-test suite (`pytest`) runs and passes against the real
   installed `openai-agents==0.22.0` package.
 - Setting `OPENAI_API_KEY` (see `.env.example`) switches every agent to
   the SDK's real default model -- `OpenAIResponsesModel`, the real
@@ -70,6 +70,13 @@ See `examples/outputs/`:
 All three guardrail types trip in this sample run, not just the one the
 brief requires -- see `docs/architecture.md`'s guardrail table.
 
+**Security note:** an automated review of the initial commit found four
+real issues (a cross-customer authorization gap in the tools, a
+guardrail bypass via a self-asserted flag, and two guardrail parsing
+gaps) -- all fixed, with regression tests added for each; see
+`docs/architecture.md`'s "Vulnerabilities found by an automated security
+review" section for the full detail.
+
 ## Tracing
 
 `examples/traces/trace.jsonl` -- every agent run, handoff, tool call, and
@@ -89,7 +96,7 @@ rejected refund mid-call).
 - `src/run_demo.py` -- runs all seven sample interactions
 - `docs/architecture.md` -- agent topology diagram, guardrail table, bugs found by running this
 - `docs/design-doc.md` -- design decisions and rationale, plus the trace-evidence walkthrough
-- `tests/` -- 14 tests: guardrail unit tests + full-run integration tests
+- `tests/` -- 17 tests: guardrail unit tests + full-run integration tests
 - `examples/` -- committed sample outputs, trace, and (once generated) sessions
 
 ## Repository layout note on `data/audit_log.jsonl`

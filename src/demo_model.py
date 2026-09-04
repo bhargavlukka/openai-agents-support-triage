@@ -98,13 +98,6 @@ def tool_output_for(input_data: str | list, tool_name: str) -> str | None:
     return None
 
 
-def customer_id_from_instructions(system_instructions: str | None) -> str:
-    if not system_instructions:
-        return "cust-4471"
-    match = re.search(r"customer_id[:=]\s*([\w-]+)", system_instructions)
-    return match.group(1) if match else "cust-4471"
-
-
 DecideFn = Callable[[str | None, str | list], "ResponseFunctionToolCall | ResponseOutputMessage"]
 
 
@@ -164,7 +157,6 @@ def router_decide(system_instructions, input_data):
 
 
 def billing_decide(system_instructions, input_data):
-    customer_id = customer_id_from_instructions(system_instructions)
     text = latest_user_message(input_data).lower()
 
     refund_output = tool_output_for(input_data, "issue_refund")
@@ -183,9 +175,11 @@ def billing_decide(system_instructions, input_data):
     if "refund" in text:
         amount_match = _REFUND_AMOUNT_RE.search(text)
         amount = float(amount_match.group(1)) if amount_match else 50.0
-        return _tool_call("issue_refund", {"customer_id": customer_id, "amount": amount, "reason": "customer request"})
+        # No customer_id argument here -- issue_refund reads it from the
+        # trusted run context now, not from a model-suppliable argument.
+        return _tool_call("issue_refund", {"amount": amount, "reason": "customer request"})
 
-    return _tool_call("look_up_invoice", {"customer_id": customer_id})
+    return _tool_call("look_up_invoice", {})
 
 
 def technical_decide(system_instructions, input_data):
@@ -208,7 +202,6 @@ def technical_decide(system_instructions, input_data):
 
 
 def account_decide(system_instructions, input_data):
-    customer_id = customer_id_from_instructions(system_instructions)
     text = latest_user_message(input_data).lower()
 
     update_output = tool_output_for(input_data, "update_contact_info")
@@ -224,6 +217,10 @@ def account_decide(system_instructions, input_data):
         field = "email" if "email" in text else "phone"
         new_value_match = re.search(r"to ([\w@.\-]+)", text)
         new_value = new_value_match.group(1) if new_value_match else "unknown@example.com"
-        return _tool_call("update_contact_info", {"customer_id": customer_id, "field": field, "new_value": new_value})
+        # No customer_id argument here -- update_contact_info reads it
+        # from the trusted run context now, not from a model-suppliable
+        # argument, so this can only ever touch the current session's
+        # own customer record.
+        return _tool_call("update_contact_info", {"field": field, "new_value": new_value})
 
-    return _tool_call("look_up_account", {"customer_id": customer_id})
+    return _tool_call("look_up_account", {})

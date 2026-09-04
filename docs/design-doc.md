@@ -10,6 +10,24 @@ guardrails, and access to persistent conversation state. Built for the
 
 ## Design decisions and why
 
+**Customer-scoped tools read `customer_id` from the run context, never
+from a model-suppliable argument.** This was not the original design --
+an automated security review of the initial commit found that
+`look_up_invoice`, `issue_refund`, `look_up_account`, and
+`update_contact_info` all took `customer_id: str` as a plain tool
+argument, meaning the calling agent (and anything able to influence its
+tool-call arguments, such as a prompt-injection payload) could ask to
+act on a *different* customer's record. The fix uses the SDK's own
+`ctx: RunContextWrapper[SupportContext]` parameter convention: a
+ctx-typed first parameter is injected from the trusted run context and
+excluded from the tool's model-facing JSON schema entirely (confirmed by
+printing `params_json_schema` for a ctx-only tool: zero properties). This
+is the idiomatic authorization boundary the SDK provides for exactly
+this situation, not a guardrail bolted on after the fact -- see
+`docs/architecture.md`'s security-review section for the other three
+issues found and fixed the same way.
+
+
 **Handoffs are keyword-classified in the demo model, but the real
 architecture routes on LLM judgment.** In production
 (`OPENAI_API_KEY` set), the router's real model decides which
@@ -65,18 +83,25 @@ handoff   {from_agent: Router, to_agent: Billing Agent}
 agent     {name: Billing Agent, tools: [look_up_invoice, issue_refund]}
 custom    {name: turn, data: {turn: 2, agent_name: Billing Agent}}
 function  {name: issue_refund,
-           input:  {"customer_id": "cust-4471", "amount": 900.0, "reason": "customer request"},
-           output: "Refund of $900.00 exceeds the $500 threshold and requires
-                     manager approval (manager_override=True)."}
+           input:  {"amount": 900.0, "reason": "customer request"},
+           output: "Refund of $900.00 exceeds the $500 threshold. This must be
+                     processed by a manager through a separate, authenticated
+                     approval workflow -- it cannot be issued from this tool."}
 custom    {name: turn, data: {turn: 3, agent_name: Billing Agent}}
 guardrail {name: no_sensitive_data_leak_guardrail, triggered: False}
 ```
 
-The `function` span's `output` field is the guardrail's rejection
-message, not the tool's real return value (`{"status": "issued", ...}`,
-visible in the $50 refund scenario's trace in the same file) -- direct,
-inspectable proof the guardrail intercepted before the tool body ran,
-not just that the final answer happened to mention a rejection.
+Two things worth noting in that span, directly from the trace rather
+than asserted in prose: the `function` span's `output` field is the
+guardrail's rejection message, not the tool's real return value
+(`{"status": "issued", ...}`, visible in the $50 refund scenario's trace
+in the same file) -- direct, inspectable proof the guardrail intercepted
+before the tool body ran. And `input` carries only `amount` and
+`reason` -- no `customer_id` -- which is the authorization fix
+(`docs/architecture.md`'s "Vulnerabilities found by an automated
+security review") visible in the trace itself: the tool was never given
+an argument an attacker could have set to a different customer's ID in
+the first place.
 
 The input-guardrail trip (`examples/outputs/06_...json`'s scenario) shows
 even more starkly in the trace -- the run stops after a single
