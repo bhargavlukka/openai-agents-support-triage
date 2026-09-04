@@ -1,0 +1,7 @@
+{
+  "scenario": "01_billing_balance_lookup",
+  "input": "What's my current invoice balance?",
+  "final_output": "Your current balance is $128.4.",
+  "last_agent": "Billing Agent",
+  "session_history_length": 6
+}

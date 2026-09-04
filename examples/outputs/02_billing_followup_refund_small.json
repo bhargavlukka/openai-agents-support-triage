@@ -1,0 +1,7 @@
+{
+  "scenario": "02_billing_followup_refund_small",
+  "input": "Thanks -- can I get a $50 refund on that?",
+  "final_output": "Here's the result of your refund request: {\"status\": \"issued\", \"customer_id\": \"cust-4471\", \"amount\": 50.0}",
+  "last_agent": "Billing Agent",
+  "session_history_length": 12
+}

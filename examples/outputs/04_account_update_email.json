@@ -1,0 +1,7 @@
+{
+  "scenario": "04_account_update_email",
+  "input": "Please update my email to jordan.new@example.com",
+  "final_output": "Done -- your contact info has been updated: {\"status\": \"updated\", \"customer_id\": \"cust-4471\", \"field\": \"email\", \"new_value\": \"jordan.new@example.com\"}",
+  "last_agent": "Account Management Agent",
+  "session_history_length": 6
+}
